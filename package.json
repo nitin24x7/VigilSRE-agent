@@ -1,0 +1,33 @@
+{
+  "name": "vigilsre-agent",
+  "version": "1.0.0",
+  "description": "VigilSRE is an autonomous site reliability engineering agent designed to ingest production crash alerts, isolate failures inside Daytona sandboxes, synthesize verified hotfixes, audit code changes using Qodo, and halt at a strict Human-in-the-Loop Approval Checkpoint before dispatching pull requests to GitHub.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "server": "npx tsx server.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nitin24x7/VigilSRE-agent.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nitin24x7/VigilSRE-agent/issues"
+  },
+  "homepage": "https://github.com/nitin24x7/VigilSRE-agent#readme",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.4.0",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2"
+  }
+}
