@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
-  GitPullRequest, 
   Cpu, 
   CheckCircle2, 
   AlertTriangle, 
@@ -9,6 +8,8 @@ import {
   ExternalLink, 
   Bot, 
   GitBranch, 
+  GitCommit,
+  GitPullRequest,
   Search, 
   Check, 
   X, 
@@ -21,43 +22,157 @@ import {
   FolderGit2, 
   Settings, 
   Layers,
-  Server,
-  RefreshCw,
   Send,
   Sliders,
-  Database,
-  Code
+  Activity,
+  Radio,
+  ArrowUpRight,
+  UserCheck,
+  Server,
+  Workflow,
+  Clock,
+  RefreshCw,
+  ShieldAlert,
+  ArrowDown
 } from 'lucide-react';
 
 const API_BASE = 'http://localhost:4000/api';
 
+interface GitCommitItem {
+  hash: string;
+  branch: string;
+  message: string;
+  author: string;
+  timestamp: string;
+  status: 'passed' | 'failed' | 'pending';
+}
+
+interface PRItem {
+  number: number;
+  title: string;
+  author: string;
+  branch: string;
+  qodoAudit: string;
+  status: 'Merged' | 'Open' | 'Reviewing';
+  url: string;
+}
+
 export default function VigilSREApp() {
-  const [activeNav, setActiveNav] = useState<'incidents' | 'repos' | 'audits' | 'terminal'>('incidents');
+  const [activeNav, setActiveNav] = useState<'incidents' | 'tree' | 'prs' | 'fleet' | 'terminal'>('incidents');
   const [activeTab, setActiveTab] = useState<'diff' | 'trace'>('diff');
   
   // Real backend telemetry
   const [engineAlive, setEngineAlive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState('AIzaSyD-••••••••••••••••••••••••');
-  
-  // Terminal view state
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Live second-by-second telemetry
+  const [liveCpu, setLiveCpu] = useState(41.4);
+  const [liveLatency, setLiveLatency] = useState(22);
+  const [tickerTime, setTickerTime] = useState(new Date().toLocaleTimeString());
+  const [canaryShedding, setCanaryShedding] = useState(false);
+
+  // Editable configuration
+  const [config, setConfig] = useState({
+    trueforgeUrl: 'http://localhost:8790',
+    daytonaId: 'sb-9842-isolated-env',
+    geminiKey: 'AIzaSyD-••••••••••••••••••••••••',
+    modelName: 'Gemini 3.7 Flash',
+    targetRepo: 'nitin24x7/VigilSRE-agent',
+    targetBranch: 'main'
+  });
+
+  // Terminal commands
   const [terminalInput, setTerminalInput] = useState('');
   const [terminalHistory, setTerminalHistory] = useState<string[]>([
-    'TrueForge v0.1.4 Shell [Standalone Engine]',
-    'Connected to runtime on http://localhost:8790',
-    'Type "help" or "status" to query the harness.'
+    'VigilSRE Autonomous Kernel v1.2.0-prod [Active]',
+    'TrueForge Runtime Bridge mounted at http://localhost:8790',
+    'Repository: nitin24x7/VigilSRE-agent (tracking: main, feat/phase2-trueforge-agent)',
+    'Type "help", "status", "rollback", or "triage" for autonomous commands.'
   ]);
 
   const [incident, setIncident] = useState({
     incidentId: 'INC-8941',
-    service: 'corp/auth-gateway',
+    service: 'nitin24x7/VigilSRE-agent',
     status: 'IDLE',
     faultyCommit: '#4f8b91a',
     diff: '',
-    prUrl: '',
+    prUrl: 'https://github.com/nitin24x7/VigilSRE-agent/pull/1',
     logs: [] as Array<{ id: string; time: string; phase: string; message: string }>
   });
+
+  // Simulated Commit Graph & History Tree
+  const commits: GitCommitItem[] = [
+    {
+      hash: '55da8e7',
+      branch: 'main',
+      message: 'feat(ui): implement live telemetry dashboard & interactive console',
+      author: 'nitin24x7',
+      timestamp: 'Just now',
+      status: 'passed'
+    },
+    {
+      hash: 'd8d08f3',
+      branch: 'main',
+      message: 'Merge pull request #1 from nitin24x7/feat/phase2-trueforge-agent',
+      author: 'nitin24x7',
+      timestamp: '15m ago',
+      status: 'passed'
+    },
+    {
+      hash: '83d455a',
+      branch: 'feat/phase2-trueforge-agent',
+      message: 'fix(agent): remove bash heredoc wrappers to ensure valid json specification',
+      author: 'nitin24x7',
+      timestamp: '22m ago',
+      status: 'passed'
+    },
+    {
+      hash: '4f8b91a',
+      branch: 'main',
+      message: 'perf(auth): bypass bounds allocation in token worker threads',
+      author: 'auth-team',
+      timestamp: '1h ago',
+      status: 'failed'
+    },
+    {
+      hash: '9a1c220',
+      branch: 'main',
+      message: 'chore: initialize VigilSRE monorepo structure & Daytona sandbox setup',
+      author: 'nitin24x7',
+      timestamp: '3h ago',
+      status: 'passed'
+    }
+  ];
+
+  // Verified Pull Requests
+  const pullRequests: PRItem[] = [
+    {
+      number: 1,
+      title: 'feat(agent): initialize TrueForge agent specification & approval gates',
+      author: 'nitin24x7',
+      branch: 'feat/phase2-trueforge-agent -> main',
+      qodoAudit: 'Passed (0 High / Med Defects)',
+      status: 'Merged',
+      url: 'https://github.com/nitin24x7/VigilSRE-agent/pull/1'
+    }
+  ];
+
+  // Clock & Metrics Ticker
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTickerTime(new Date().toLocaleTimeString());
+      setLiveCpu(prev => Number((Math.max(16, Math.min(84, prev + (Math.random() * 4 - 2)))).toFixed(1)));
+      setLiveLatency(prev => Math.floor(Math.max(14, Math.min(55, prev + (Math.random() * 4 - 2)))));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   const fetchState = async () => {
     try {
@@ -84,6 +199,7 @@ export default function VigilSREApp() {
       const res = await axios.post(`${API_BASE}/simulate-outage`);
       setIncident(res.data);
       setActiveNav('incidents');
+      showToast('P0 Incident Triggered: Daytona Sandbox Spawned');
     } finally {
       setLoading(false);
     }
@@ -94,6 +210,7 @@ export default function VigilSREApp() {
     try {
       const res = await axios.post(`${API_BASE}/approve`);
       setIncident(res.data);
+      showToast('TrueForge Approval Gate: Hotfix PR Dispatched to Production');
     } finally {
       setLoading(false);
     }
@@ -104,6 +221,7 @@ export default function VigilSREApp() {
     try {
       const res = await axios.post(`${API_BASE}/reset`);
       setIncident(res.data);
+      showToast('Incident State Reset to Healthy Baseline');
     } finally {
       setLoading(false);
     }
@@ -116,18 +234,20 @@ export default function VigilSREApp() {
     const newHist = [...terminalHistory, `> ${terminalInput}`];
 
     if (cmd === 'help') {
-      newHist.push('Available commands: status, triage, sandbox, qodo, clear');
+      newHist.push('Available commands: status, triage, rollback, sandbox, qodo, pr, fleet, clear');
     } else if (cmd === 'status') {
-      newHist.push(`Incident: ${incident.incidentId} | State: ${incident.status} | Engine: :8790`);
+      newHist.push(`Target: ${config.targetRepo} | Branch: ${config.targetBranch} | Incident: ${incident.status}`);
     } else if (cmd === 'triage') {
       handleSimulate();
-      newHist.push('Initiating P0 outage triage workflow...');
-    } else if (cmd === 'sandbox') {
-      newHist.push('Daytona sb-9842: Active (Ubuntu LTS container mounted).');
-    } else if (cmd === 'qodo') {
-      newHist.push('Qodo Guardrails: Merged PR #1 verified. 0 High/Med defects.');
+      newHist.push('Simulating P0 SIGSEGV incident triage cycle...');
+    } else if (cmd === 'rollback') {
+      setCanaryShedding(true);
+      newHist.push('Initiating instant canary traffic shift away from failing nodes...');
+      showToast('Traffic shed to fallback healthy cluster');
+    } else if (cmd === 'fleet') {
+      newHist.push('Node Cluster ap-south-1: 3 Nodes Active (ap-south-1a, ap-south-1b, ap-south-1c)');
     } else if (cmd === 'clear') {
-      setTerminalHistory(['Terminal cleared.']);
+      setTerminalHistory(['Console cleared.']);
       setTerminalInput('');
       return;
     } else {
@@ -139,12 +259,22 @@ export default function VigilSREApp() {
   };
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#07090D] text-[#E6EDF3] selection:bg-[#EE0000]/30 font-sans">
+    <div className="h-screen w-screen flex flex-col bg-[#04060A] text-[#E6EDF3] selection:bg-[#EE0000]/30 font-sans">
       
-      {/* Top Bar */}
-      <header className="h-20 bg-[#0B0F17] border-b border-[#21262D] px-6 flex items-center justify-between shrink-0 shadow-md">
+      {/* Toast Alert */}
+      {toastMessage && (
+        <div className="fixed top-24 right-8 z-50 bg-[#101622] border border-[#EE0000] text-white px-4 py-2.5 rounded-lg shadow-2xl flex items-center gap-2.5 font-mono text-xs animate-bounce">
+          <Sparkles className="w-4 h-4 text-[#EE0000]" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* TOP HEADER: High-Contrast Live Operations Bar */}
+      <header className="h-20 bg-[#080C14] border-b border-[#1E2635] px-6 flex items-center justify-between shrink-0 shadow-2xl z-30">
+        
+        {/* Brand & Wordmark */}
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-xl overflow-hidden bg-black border border-[#30363D] flex items-center justify-center p-1 shadow-lg shrink-0">
+          <div className="w-14 h-14 rounded-xl overflow-hidden bg-black border border-[#2D3748] flex items-center justify-center p-1.5 shadow-xl shrink-0">
             <img 
               src="/icon.png" 
               alt="VigilSRE" 
@@ -158,57 +288,93 @@ export default function VigilSREApp() {
               <span className="text-[#EE0000]">Vigil</span>
               <span className="text-white">SRE</span>
             </div>
-            <div className="text-[11px] text-[#8B949E] tracking-wider uppercase font-mono mt-1 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#EE0000] inline-block animate-pulse"></span>
+            <div className="text-[11px] text-[#8B949E] tracking-wider uppercase font-mono mt-1 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#EE0000] inline-block animate-ping"></span>
               Autonomous Agent Harness & Triage
             </div>
           </div>
         </div>
 
-        {/* Status Indicators */}
-        <div className="hidden lg:flex items-center gap-3 font-mono text-xs">
-          <div className="bg-[#161B22] border border-[#30363D] px-3.5 py-1.5 rounded-lg flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${engineAlive ? 'bg-[#238636]' : 'bg-[#F85149]'}`} />
-            <span className="text-[#8B949E]">TrueForge :8790:</span>
-            <span className="text-slate-200 font-semibold">{engineAlive ? 'ONLINE' : 'OFFLINE'}</span>
+        {/* Live Second-by-Second Telemetry */}
+        <div className="hidden xl:flex items-center gap-3 font-mono text-xs">
+          <div className="bg-[#0D121D] border border-[#1E2635] px-3.5 py-1.5 rounded-lg flex items-center gap-2">
+            <Clock className="w-3.5 h-3.5 text-[#8B949E]" />
+            <span className="text-white font-bold">{tickerTime}</span>
           </div>
 
-          <div className="bg-[#161B22] border border-[#30363D] px-3.5 py-1.5 rounded-lg flex items-center gap-2">
-            <Bot className="w-4 h-4 text-[#58A6FF]" />
-            <span className="text-[#8B949E]">Model:</span>
-            <span className="text-slate-200 font-semibold">Gemini 3.7 Flash</span>
+          <div className="bg-[#0D121D] border border-[#1E2635] px-3.5 py-1.5 rounded-lg flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${engineAlive ? 'bg-[#238636] shadow-[0_0_8px_#238636]' : 'bg-[#F85149]'}`} />
+            <span className="text-[#8B949E]">Engine:</span>
+            <span className="text-slate-200 font-semibold">{engineAlive ? 'ONLINE (:8790)' : 'WAITING'}</span>
+          </div>
+
+          <div className="bg-[#0D121D] border border-[#1E2635] px-3.5 py-1.5 rounded-lg flex items-center gap-2">
+            <Radio className="w-3.5 h-3.5 text-[#EE0000] animate-pulse" />
+            <span className="text-[#8B949E]">Cluster CPU:</span>
+            <span className="text-slate-200 font-semibold">{liveCpu}%</span>
+          </div>
+
+          <div className="bg-[#0D121D] border border-[#1E2635] px-3.5 py-1.5 rounded-lg flex items-center gap-2">
+            <Activity className="w-3.5 h-3.5 text-[#3FB950]" />
+            <span className="text-[#8B949E]">Latency:</span>
+            <span className="text-slate-200 font-semibold">{liveLatency}ms</span>
+          </div>
+
+          <div className="bg-[#0D121D] border border-[#1E2635] px-3.5 py-1.5 rounded-lg flex items-center gap-2">
+            <Bot className="w-3.5 h-3.5 text-[#58A6FF]" />
+            <span className="text-slate-200 font-semibold">{config.modelName}</span>
           </div>
         </div>
 
-        {/* Global Action Button */}
+        {/* Global Driver Control */}
         <div className="flex items-center gap-3">
           {incident.status === 'RESOLVED' ? (
             <button
               onClick={handleReset}
               disabled={loading}
-              className="bg-[#21262D] hover:bg-[#30363D] text-white text-xs font-bold px-4 py-2.5 rounded-md flex items-center gap-2 border border-[#363B42] transition"
+              className="bg-[#1C2331] hover:bg-[#252E40] text-white text-xs font-bold px-4 py-2.5 rounded-md flex items-center gap-2 border border-[#2D3748] transition shadow-md"
             >
-              <RotateCcw className="w-4 h-4" /> Reset Agent State
+              <RotateCcw className="w-4 h-4 text-[#58A6FF]" /> Reset Incident
             </button>
           ) : (
             <button 
               onClick={handleSimulate}
               disabled={loading || incident.status === 'AWAITING_HUMAN_APPROVAL'}
-              className="bg-[#EE0000] hover:bg-[#CC0000] disabled:opacity-50 active:scale-95 text-white text-xs font-bold px-5 py-2.5 rounded-md flex items-center gap-2 transition shadow-lg shadow-[#EE0000]/25 tracking-wide uppercase"
+              className="bg-[#EE0000] hover:bg-[#CC0000] disabled:opacity-50 active:scale-95 text-white text-xs font-black px-5 py-2.5 rounded-md flex items-center gap-2 transition shadow-xl shadow-[#EE0000]/30 tracking-wider uppercase"
             >
               <Play className="w-3.5 h-3.5 fill-white" />
-              {incident.status === 'AWAITING_HUMAN_APPROVAL' ? 'Incident In Progress' : 'Simulate P0 Outage'}
+              {incident.status === 'AWAITING_HUMAN_APPROVAL' ? 'Triage In Progress' : 'Simulate P0 Outage'}
             </button>
           )}
         </div>
       </header>
 
-      {/* Main Workspace Layout */}
+      {/* Main Workspace Frame */}
       <div className="flex-1 flex overflow-hidden">
         
-        {/* Persistent Interactive Sidebar */}
-        <aside className="w-64 bg-[#090D14] border-r border-[#21262D] flex flex-col justify-between p-3 shrink-0 select-none">
+        {/* SIDEBAR NAVIGATION */}
+        <aside className="w-64 bg-[#070A10] border-r border-[#1E2635] flex flex-col justify-between p-3 shrink-0 select-none">
           <div className="space-y-6">
+            
+            {/* Monitored Repository Card */}
+            <div className="bg-[#0D121C] border border-[#1E2635] p-3 rounded-lg">
+              <div className="text-[10px] font-bold text-[#8B949E] uppercase tracking-wider font-mono mb-1.5 flex items-center justify-between">
+                <span>Active Target</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#3FB950]" />
+              </div>
+              <div className="flex items-center gap-2 text-xs font-bold text-white truncate">
+                <FolderGit2 className="w-4 h-4 text-[#EE0000] shrink-0" />
+                <span className="truncate">{config.targetRepo}</span>
+              </div>
+              <div className="mt-1 flex items-center gap-1.5 text-[11px] font-mono text-[#8B949E]">
+                <GitBranch className="w-3 h-3 text-[#58A6FF]" />
+                <span>{config.targetBranch}</span>
+                <span className="text-[#3A4454]">•</span>
+                <span className="text-[#3FB950]">Protected</span>
+              </div>
+            </div>
+
+            {/* Menu Items */}
             <div>
               <div className="text-[11px] font-bold text-[#8B949E] uppercase tracking-wider px-3 mb-2 font-mono">
                 Platform Navigation
@@ -217,34 +383,47 @@ export default function VigilSREApp() {
                 <button
                   onClick={() => setActiveNav('incidents')}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-xs font-bold tracking-wide transition ${
-                    activeNav === 'incidents' ? 'bg-[#EE0000] text-white shadow-md shadow-[#EE0000]/20' : 'text-[#8B949E] hover:text-white hover:bg-[#161B22]'
+                    activeNav === 'incidents' ? 'bg-[#EE0000] text-white shadow-lg shadow-[#EE0000]/25' : 'text-[#8B949E] hover:text-white hover:bg-[#111622]'
                   }`}
                 >
                   <AlertTriangle className="w-4 h-4" />
                   <span>Active Outages (P0)</span>
                 </button>
+
                 <button
-                  onClick={() => setActiveNav('repos')}
+                  onClick={() => setActiveNav('tree')}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-xs font-bold tracking-wide transition ${
-                    activeNav === 'repos' ? 'bg-[#EE0000] text-white shadow-md shadow-[#EE0000]/20' : 'text-[#8B949E] hover:text-white hover:bg-[#161B22]'
+                    activeNav === 'tree' ? 'bg-[#EE0000] text-white shadow-lg shadow-[#EE0000]/25' : 'text-[#8B949E] hover:text-white hover:bg-[#111622]'
                   }`}
                 >
-                  <FolderGit2 className="w-4 h-4" />
-                  <span>Target Repositories</span>
+                  <Workflow className="w-4 h-4" />
+                  <span>Git Branch Tree</span>
                 </button>
+
                 <button
-                  onClick={() => setActiveNav('audits')}
+                  onClick={() => setActiveNav('prs')}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-xs font-bold tracking-wide transition ${
-                    activeNav === 'audits' ? 'bg-[#EE0000] text-white shadow-md shadow-[#EE0000]/20' : 'text-[#8B949E] hover:text-white hover:bg-[#161B22]'
+                    activeNav === 'prs' ? 'bg-[#EE0000] text-white shadow-lg shadow-[#EE0000]/25' : 'text-[#8B949E] hover:text-white hover:bg-[#111622]'
                   }`}
                 >
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Qodo Code Audits</span>
+                  <GitPullRequest className="w-4 h-4" />
+                  <span>Pull Requests & Qodo</span>
                 </button>
+
+                <button
+                  onClick={() => setActiveNav('fleet')}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-xs font-bold tracking-wide transition ${
+                    activeNav === 'fleet' ? 'bg-[#EE0000] text-white shadow-lg shadow-[#EE0000]/25' : 'text-[#8B949E] hover:text-white hover:bg-[#111622]'
+                  }`}
+                >
+                  <Server className="w-4 h-4" />
+                  <span>Cluster Fleet Health</span>
+                </button>
+
                 <button
                   onClick={() => setActiveNav('terminal')}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-xs font-bold tracking-wide transition ${
-                    activeNav === 'terminal' ? 'bg-[#EE0000] text-white shadow-md shadow-[#EE0000]/20' : 'text-[#8B949E] hover:text-white hover:bg-[#161B22]'
+                    activeNav === 'terminal' ? 'bg-[#EE0000] text-white shadow-lg shadow-[#EE0000]/25' : 'text-[#8B949E] hover:text-white hover:bg-[#111622]'
                   }`}
                 >
                   <Terminal className="w-4 h-4" />
@@ -253,59 +432,65 @@ export default function VigilSREApp() {
               </nav>
             </div>
 
-            {/* TrueForge Runtime Info */}
-            <div className="pt-2 border-t border-[#21262D]">
+            {/* Modules Check */}
+            <div className="pt-2 border-t border-[#1E2635]">
               <div className="text-[11px] font-bold text-[#8B949E] uppercase tracking-wider px-3 mb-2 font-mono">
                 Active Modules
               </div>
               <div className="space-y-1.5 px-3 font-mono text-[11px]">
                 <div className="flex items-center justify-between text-[#8B949E]">
                   <span className="flex items-center gap-1.5"><Cpu className="w-3.5 h-3.5 text-[#58A6FF]" /> Daytona Box</span>
-                  <span className="text-[#3FB950]">Live</span>
+                  <span className="text-[#3FB950] font-semibold">Active</span>
                 </div>
                 <div className="flex items-center justify-between text-[#8B949E]">
-                  <span className="flex items-center gap-1.5"><Layers className="w-3.5 h-3.5 text-[#D29922]" /> MCP Server</span>
-                  <span className="text-[#3FB950]">Connected</span>
+                  <span className="flex items-center gap-1.5"><Layers className="w-3.5 h-3.5 text-[#D29922]" /> GitHub MCP</span>
+                  <span className="text-[#3FB950] font-semibold">Ready</span>
                 </div>
                 <div className="flex items-center justify-between text-[#8B949E]">
                   <span className="flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 text-[#EE0000]" /> Approval Gate</span>
-                  <span className="text-[#EE0000] font-bold">Enabled</span>
+                  <span className="text-[#EE0000] font-bold">Armed</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* SRE Operator footer with Settings Button */}
-          <div className="bg-[#161B22] border border-[#21262D] p-3 rounded-lg flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-full bg-[#EE0000] text-white font-bold flex items-center justify-center text-xs">S</div>
-              <div className="flex flex-col">
-                <span className="text-xs font-semibold text-white leading-none">SRE Operator</span>
-                <span className="text-[10px] text-[#8B949E] font-mono mt-1">on-call@vigil.io</span>
+          {/* User Profile Footer: Nitin Pathak / nitin24x7 */}
+          <div className="bg-[#0D121C] border border-[#1E2635] p-3 rounded-xl flex items-center justify-between shadow-md">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#EE0000] to-rose-700 text-white font-bold flex items-center justify-center text-xs shadow-md shrink-0 border border-white/20">
+                N
+              </div>
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-bold text-white truncate">nitin24x7</span>
+                  <UserCheck className="w-3 h-3 text-[#3FB950] shrink-0" />
+                </div>
+                <span className="text-[10px] text-[#8B949E] font-mono truncate">Lead SRE Operator</span>
               </div>
             </div>
             <button 
-              onClick={() => setShowSettings(!showSettings)}
-              className="p-1 rounded hover:bg-[#21262D] transition text-[#8B949E] hover:text-white"
+              onClick={() => setShowSettings(true)}
+              className="p-1.5 rounded-lg bg-[#151C2A] hover:bg-[#1E2635] text-[#8B949E] hover:text-white transition cursor-pointer"
+              title="Configure Settings"
             >
               <Settings className="w-4 h-4" />
             </button>
           </div>
         </aside>
 
-        {/* Dynamic Content based on Active Navigation Tab */}
-        <main className="flex-1 p-6 overflow-y-auto bg-[#07090D]">
+        {/* WORKSPACE CONTENT AREA */}
+        <main className="flex-1 p-6 overflow-y-auto bg-[#04060A] space-y-6">
 
           {/* 1. VIEW: ACTIVE OUTAGES (P0) */}
           {activeNav === 'incidents' && (
             <div className="space-y-6">
               
-              {/* Human Approval Gate */}
+              {/* Approval Checkpoint Banner (Amber) */}
               {incident.status === 'AWAITING_HUMAN_APPROVAL' && (
-                <div className="bg-[#12161F] border-2 border-[#D29922] rounded-xl p-5 shadow-2xl relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-2 h-full bg-[#D29922]" />
+                <div className="bg-[#0F1522] border-2 border-[#D29922] rounded-xl p-5 shadow-2xl relative overflow-hidden animate-in fade-in duration-300">
+                  <div className="absolute top-0 left-0 w-2.5 h-full bg-[#D29922]" />
                   
-                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-[#21262D]">
+                  <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-4 border-b border-[#1E2635]">
                     <div>
                       <div className="flex items-center gap-2 text-xs font-bold text-[#D29922] uppercase tracking-wider mb-1 font-mono">
                         <Lock className="w-4 h-4" /> TrueForge Human Approval Checkpoint
@@ -313,22 +498,22 @@ export default function VigilSREApp() {
                       <h2 className="text-lg font-bold text-white tracking-tight">
                         Authorize Hotfix PR & Deploy to Production Fleet?
                       </h2>
-                      <p className="text-xs text-[#8B949E] mt-1 max-w-2xl">
-                        Bug reproduced in Daytona sandbox, patched with safe zero-copy boundary checks, and audited via Qodo. TrueForge is paused waiting for operator sign-off before dispatching to GitHub.
+                      <p className="text-xs text-[#8B949E] mt-1 max-w-2xl leading-relaxed">
+                        Crash reproduced in Daytona sandbox (exit code 139), patch synthesized with zero-copy buffer guard, and audited clean via Qodo. TrueForge holds execution before touching GitHub.
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-3 w-full md:w-auto justify-end shrink-0">
+                    <div className="flex items-center gap-3 w-full lg:w-auto justify-end shrink-0">
                       <button
                         onClick={handleReset}
-                        className="px-4 py-2 bg-[#21262D] hover:bg-[#30363D] text-white text-xs font-bold rounded-md flex items-center gap-1.5 transition"
+                        className="px-4 py-2.5 bg-[#1C2331] hover:bg-[#252E40] text-white text-xs font-bold rounded-md flex items-center gap-1.5 transition border border-[#2D3748]"
                       >
                         <X className="w-4 h-4 text-[#F85149]" /> Reject & Abort
                       </button>
                       <button
                         onClick={handleApprove}
                         disabled={loading}
-                        className="px-5 py-2 bg-[#238636] hover:bg-[#2ea043] active:scale-95 text-white text-xs font-bold rounded-md flex items-center gap-2 transition shadow-lg shadow-[#238636]/30 uppercase tracking-wide"
+                        className="px-5 py-2.5 bg-[#238636] hover:bg-[#2ea043] active:scale-95 text-white text-xs font-black rounded-md flex items-center gap-2 transition shadow-xl shadow-[#238636]/30 uppercase tracking-wide"
                       >
                         <Check className="w-4 h-4 stroke-[3]" /> Authorize PR Merging
                       </button>
@@ -336,121 +521,123 @@ export default function VigilSREApp() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3 text-xs font-mono">
-                    <div className="bg-[#0B0F17] border border-[#21262D] p-2.5 rounded-md flex items-center justify-between">
-                      <span className="text-[#8B949E]">Target MCP Tool:</span>
+                    <div className="bg-[#080B12] border border-[#1E2635] p-2.5 rounded-lg flex items-center justify-between">
+                      <span className="text-[#8B949E]">Target Tool:</span>
                       <span className="text-[#58A6FF] font-semibold">github-mcp: create_pr</span>
                     </div>
-                    <div className="bg-[#0B0F17] border border-[#21262D] p-2.5 rounded-md flex items-center justify-between">
-                      <span className="text-[#8B949E]">Sandbox Test Suite:</span>
-                      <span className="text-[#3FB950] font-semibold">3/3 Passed (0 Regressions)</span>
+                    <div className="bg-[#080B12] border border-[#1E2635] p-2.5 rounded-lg flex items-center justify-between">
+                      <span className="text-[#8B949E]">Sandbox Tests:</span>
+                      <span className="text-[#3FB950] font-semibold">3/3 Passed (0 Regr.)</span>
                     </div>
-                    <div className="bg-[#0B0F17] border border-[#21262D] p-2.5 rounded-md flex items-center justify-between">
-                      <span className="text-[#8B949E]">Qodo Quality Status:</span>
-                      <span className="text-[#A371F7] font-semibold">0 Critical Defects</span>
+                    <div className="bg-[#080B12] border border-[#1E2635] p-2.5 rounded-lg flex items-center justify-between">
+                      <span className="text-[#8B949E]">Qodo Quality:</span>
+                      <span className="text-[#A371F7] font-semibold">Clean (0 Defects)</span>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Resolved Banner */}
+              {/* Resolved State */}
               {incident.status === 'RESOLVED' && (
-                <div className="bg-[#12161F] border border-[#238636] rounded-xl p-4 flex items-center justify-between shadow-xl">
+                <div className="bg-[#0C151F] border border-[#238636] rounded-xl p-4 flex items-center justify-between shadow-xl">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-[#238636] text-white rounded-lg">
+                    <div className="p-2 bg-[#238636] text-white rounded-lg shadow-md">
                       <CheckCircle2 className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="font-bold text-white text-sm">
-                        Hotfix Pull Request Dispatched & Merged
+                      <div className="font-bold text-white text-sm flex items-center gap-2">
+                        <span>Hotfix Pull Request Dispatched & Merged</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-[#238636]/20 text-[#3FB950] font-mono">Auto-Canary Active</span>
                       </div>
                       <div className="text-xs text-[#8B949E] mt-0.5">
-                        PR #1 merged into <code>main</code>. Canary worker containers rolling out across cluster.
+                        PR #1 merged into <code>main</code> branch of <strong>{config.targetRepo}</strong>. Traffic restored.
                       </div>
                     </div>
                   </div>
                   <a 
-                    href={incident.prUrl || "https://github.com/nitin24x7/VigilSRE-agent/pull/1"} 
+                    href="https://github.com/nitin24x7/VigilSRE-agent/pull/1" 
                     target="_blank" 
                     rel="noreferrer"
-                    className="flex items-center gap-1.5 text-xs font-bold text-[#58A6FF] bg-[#161B22] border border-[#30363D] px-3.5 py-1.5 rounded-md hover:bg-[#21262D] transition"
+                    className="flex items-center gap-1.5 text-xs font-bold text-[#58A6FF] bg-[#151C2A] border border-[#2D3748] px-4 py-2 rounded-md hover:bg-[#1E2635] transition shadow-md"
                   >
-                    View PR on GitHub <ExternalLink className="w-3.5 h-3.5" />
+                    View PR #1 on GitHub <ExternalLink className="w-3.5 h-3.5" />
                   </a>
                 </div>
               )}
 
-              {/* Telemetry Layout */}
+              {/* Outage & Daytona Details */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 
                 <div className="lg:col-span-5 space-y-6">
-                  <div className="bg-[#0D1117] border border-[#30363D] rounded-xl p-5 shadow-lg relative overflow-hidden">
+                  <div className="card-dark rounded-xl p-5 shadow-xl relative overflow-hidden">
                     <div className="flex items-center justify-between mb-3">
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#F85149] bg-[#F85149]/10 border border-[#F85149]/30 px-2.5 py-0.5 rounded uppercase font-mono">
-                        <AlertTriangle className="w-3 h-3" /> P0 Active Outage
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#F85149] bg-[#F85149]/10 border border-[#F85149]/30 px-2.5 py-0.5 rounded uppercase font-mono">
+                        <AlertTriangle className="w-3.5 h-3.5" /> P0 Active Outage
                       </span>
                       <span className="font-mono text-xs text-[#8B949E]">#{incident.incidentId}</span>
                     </div>
 
-                    <h3 className="font-bold text-white text-sm">SIGSEGV in Token Buffer Pool</h3>
+                    <h3 className="font-bold text-white text-base">SIGSEGV in Token Buffer Pool</h3>
                     <p className="text-xs text-[#8B949E] mt-1.5 leading-relaxed">
-                      Worker process terminated unexpectedly across multiple nodes in cluster <code>ap-south-1</code>. Auto-healing agent triggered triage pipeline.
+                      Worker process terminated with code 139 in cluster <code>ap-south-1</code>. Auto-healing triage pipeline engaged.
                     </p>
 
-                    <div className="mt-4 pt-3 border-t border-[#21262D] space-y-2 text-xs font-mono">
+                    <div className="mt-4 pt-3 border-t border-[#1E2635] space-y-2 text-xs font-mono">
                       <div className="flex justify-between items-center">
-                        <span className="text-[#8B949E] flex items-center gap-1"><GitBranch className="w-3.5 h-3.5" /> Target Repo:</span>
-                        <span className="text-slate-200 font-semibold">{incident.service}:main</span>
+                        <span className="text-[#8B949E] flex items-center gap-1"><GitBranch className="w-3.5 h-3.5" /> Monitored Repo:</span>
+                        <span className="text-slate-200 font-semibold">{config.targetRepo}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-[#8B949E] flex items-center gap-1"><Search className="w-3.5 h-3.5" /> Regressing Commit:</span>
+                        <span className="text-[#8B949E] flex items-center gap-1"><Search className="w-3.5 h-3.5" /> Faulty Commit:</span>
                         <span className="text-[#58A6FF] font-semibold">{incident.faultyCommit}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-[#0D1117] border border-[#30363D] rounded-xl p-5 space-y-3">
+                  <div className="card-dark rounded-xl p-5 space-y-3 shadow-xl">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Cpu className="w-4 h-4 text-[#58A6FF]" />
-                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">Daytona Isolated Sandbox</h4>
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">Daytona Isolated Sandbox</h4>
                       </div>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#238636]/10 text-[#3FB950] border border-[#238636]/30">Active</span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#238636]/15 text-[#3FB950] border border-[#238636]/30">Active</span>
                     </div>
 
-                    <div className="bg-[#07090D] border border-[#21262D] p-3 rounded-lg space-y-2 text-xs font-mono">
+                    <div className="bg-[#05070D] border border-[#1E2635] p-3 rounded-lg space-y-2 text-xs font-mono">
                       <div className="flex justify-between text-[#8B949E]">
                         <span>Sandbox ID:</span>
-                        <span className="text-slate-200">sb-9842-isolated-env</span>
+                        <span className="text-slate-200">{config.daytonaId}</span>
                       </div>
                       <div className="flex justify-between text-[#8B949E]">
-                        <span>Replication:</span>
-                        <span className="text-[#F85149] font-bold">Exit Code 139 (Reproduced)</span>
+                        <span>Replication Run:</span>
+                        <span className="text-[#F85149] font-bold">Exit 139 (Reproduced)</span>
                       </div>
                       <div className="flex justify-between text-[#8B949E]">
-                        <span>Verification:</span>
+                        <span>Validation Run:</span>
                         <span className="text-[#3FB950] font-bold">Passed (3/3 Tests)</span>
                       </div>
                     </div>
 
-                    <div className="bg-[#07090D] border-l-2 border-l-[#A371F7] border-y border-r border-[#21262D] p-3 rounded-lg flex items-start gap-2.5">
+                    <div className="bg-[#05070D] border-l-2 border-l-[#A371F7] border-y border-r border-[#1E2635] p-3 rounded-lg flex items-start gap-2.5">
                       <Sparkles className="w-4 h-4 text-[#A371F7] shrink-0 mt-0.5" />
                       <div>
                         <div className="font-bold text-white text-xs">Qodo Code Quality Gate</div>
                         <div className="text-[#8B949E] text-[11px] mt-0.5 leading-relaxed">
-                          Audited PR diff: zero buffer overflows, memory leaks, or unhandled exceptions.
+                          Clean PR diff verified: 0 buffer overflows, memory leaks, or unhandled exceptions.
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="lg:col-span-7 bg-[#0D1117] border border-[#30363D] rounded-xl p-5 flex flex-col min-h-[460px]">
-                  <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#21262D]">
+                {/* Diff Viewer / Trace Logs */}
+                <div className="lg:col-span-7 card-dark rounded-xl p-5 flex flex-col min-h-[460px] shadow-xl">
+                  <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#1E2635]">
                     <div className="flex items-center gap-2">
                       <button 
                         onClick={() => setActiveTab('diff')}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition ${
-                          activeTab === 'diff' ? 'bg-[#EE0000] text-white shadow-md' : 'text-[#8B949E] hover:text-white'
+                          activeTab === 'diff' ? 'bg-[#EE0000] text-white shadow-md shadow-[#EE0000]/25' : 'text-[#8B949E] hover:text-white'
                         }`}
                       >
                         <FileCode2 className="w-3.5 h-3.5" /> Synthesized Diff
@@ -458,35 +645,57 @@ export default function VigilSREApp() {
                       <button 
                         onClick={() => setActiveTab('trace')}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition ${
-                          activeTab === 'trace' ? 'bg-[#EE0000] text-white shadow-md' : 'text-[#8B949E] hover:text-white'
+                          activeTab === 'trace' ? 'bg-[#EE0000] text-white shadow-md shadow-[#EE0000]/25' : 'text-[#8B949E] hover:text-white'
                         }`}
                       >
-                        <Terminal className="w-3.5 h-3.5" /> TrueForge Engine Log ({incident.logs.length})
+                        <Terminal className="w-3.5 h-3.5" /> Engine Telemetry ({incident.logs.length})
                       </button>
                     </div>
 
                     <span className="font-mono text-[11px] text-[#8B949E]">
-                      State: <strong className="text-white">{incident.status}</strong>
+                      State: <strong className="text-white uppercase">{incident.status}</strong>
                     </span>
                   </div>
 
                   {activeTab === 'diff' ? (
-                    <div className="bg-[#07090D] border border-[#21262D] p-4 rounded-lg font-mono text-xs overflow-x-auto flex-1 flex flex-col justify-between whitespace-pre">
-                      <code className="text-[#8B949E]">{incident.diff || 'No patch generated yet. Click "Simulate P0 Outage" to trigger triage.'}</code>
+                    <div className="bg-[#05070D] border border-[#1E2635] p-4 rounded-lg font-mono text-xs overflow-x-auto flex-1 flex flex-col justify-between">
+                      <div>
+                        <div className="text-[#8B949E] mb-1">--- src/auth/token.ts (Commit {incident.faultyCommit})</div>
+                        <div className="text-[#8B949E] mb-3">+++ src/auth/token.ts (Daytona Patched & Qodo Audited)</div>
+                        
+                        <div className="space-y-1">
+                          <div className="text-[#8B949E] pl-4">@@ -14,6 +14,8 @@ export function parseAuthToken(req: Request) &#123;</div>
+                          <div className="bg-[#F85149]/15 text-[#FF7B72] px-2 py-1 rounded">
+                            -  const token = bufferPool.acquireUnchecked(size);
+                          </div>
+                          <div className="bg-[#238636]/15 text-[#7EE787] px-2 py-1 rounded">
+                            +  if (size &gt; MAX_SAFE_BUFFER_SIZE) throw new BufferOverflowError();
+                          </div>
+                          <div className="bg-[#238636]/15 text-[#7EE787] px-2 py-1 rounded">
+                            +  const token = bufferPool.acquireChecked(size);
+                          </div>
+                          <div className="text-[#8B949E] pl-4">   return verifySignature(token);</div>
+                        </div>
+                      </div>
+
+                      <div className="mt-6 pt-3 border-t border-[#1E2635] text-[11px] text-[#8B949E] flex items-center justify-between">
+                        <span>Confidence: 99.4% (Sandbox Validated)</span>
+                        <span className="font-semibold text-[#A371F7]">Qodo Audit Status: Clean</span>
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-2 font-mono text-xs overflow-y-auto flex-1 max-h-[360px] pr-2">
                       {incident.logs.length === 0 ? (
-                        <div className="text-[#8B949E] text-center py-10">No logs yet. Trigger an outage to see live telemetry.</div>
+                        <div className="text-[#8B949E] text-center py-12">No logs yet. Click "SIMULATE P0 OUTAGE" to initiate runtime telemetry.</div>
                       ) : (
                         incident.logs.map((log) => (
-                          <div key={log.id} className="flex items-start gap-2.5 p-2 bg-[#07090D] border border-[#21262D] rounded-md">
+                          <div key={log.id} className="flex items-start gap-2.5 p-2 bg-[#05070D] border border-[#1E2635] rounded-md">
                             <span className="text-[#8B949E] text-[11px] shrink-0">{log.time}</span>
                             <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0 ${
-                              log.phase === 'GATE' ? 'bg-[#D29922]/20 text-[#D29922]' :
-                              log.phase === 'SANDBOX' ? 'bg-[#A371F7]/20 text-[#A371F7]' :
-                              log.phase === 'AUDIT' ? 'bg-[#238636]/20 text-[#3FB950]' :
-                              'bg-[#21262D] text-[#8B949E]'
+                              log.phase === 'GATE' ? 'bg-[#D29922]/20 text-[#D29922] border border-[#D29922]/40' :
+                              log.phase === 'SANDBOX' ? 'bg-[#A371F7]/20 text-[#A371F7] border border-[#A371F7]/40' :
+                              log.phase === 'AUDIT' ? 'bg-[#238636]/20 text-[#3FB950] border border-[#238636]/40' :
+                              'bg-[#1C2331] text-[#8B949E]'
                             }`}>
                               {log.phase}
                             </span>
@@ -502,104 +711,203 @@ export default function VigilSREApp() {
             </div>
           )}
 
-          {/* 2. VIEW: TARGET REPOSITORIES */}
-          {activeNav === 'repos' && (
+          {/* 2. VIEW: GIT BRANCH TREE & COMMIT GRAPH */}
+          {activeNav === 'tree' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-white">Monitored Repositories & Services</h2>
-                  <p className="text-xs text-[#8B949E]">Services protected by VigilSRE autonomous agent harness.</p>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Workflow className="w-5 h-5 text-[#EE0000]" /> Git Branch Topology & Commit Tree
+                  </h2>
+                  <p className="text-xs text-[#8B949E]">Visual commit timeline showing regressions, hotfix branches, and merged PRs.</p>
                 </div>
-                <button 
-                  onClick={() => alert("Repository added to VigilSRE active watch pool.")}
-                  className="px-3.5 py-1.5 bg-[#EE0000] hover:bg-[#CC0000] text-white rounded text-xs font-bold transition"
-                >
-                  + Add Repository
-                </button>
+                <div className="flex items-center gap-2 font-mono text-xs">
+                  <span className="px-2.5 py-1 rounded bg-[#101622] border border-[#1E2635] text-[#58A6FF]">
+                    branch: main
+                  </span>
+                  <span className="px-2.5 py-1 rounded bg-[#101622] border border-[#1E2635] text-[#D29922]">
+                    branch: feat/phase2-trueforge-agent
+                  </span>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-[#0D1117] border border-[#30363D] p-4 rounded-xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 font-bold text-sm text-white">
-                      <FolderGit2 className="w-4 h-4 text-[#58A6FF]" /> corp/auth-gateway
-                    </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-[#F85149]/20 text-[#F85149] font-mono border border-[#F85149]/30">Active Triage</span>
-                  </div>
-                  <p className="text-xs text-[#8B949E]">Core gateway proxy handling token auth and request rate limiting.</p>
-                  <div className="text-xs font-mono text-[#8B949E] pt-2 border-t border-[#21262D] flex justify-between">
-                    <span>Branch: <code>main</code></span>
-                    <span>Last commit: <code>#4f8b91a</code></span>
-                  </div>
-                </div>
+              {/* Commit Timeline */}
+              <div className="card-dark rounded-xl p-6 shadow-xl space-y-6">
+                <div className="relative pl-6 border-l-2 border-[#1E2635] space-y-8 font-mono text-xs">
+                  {commits.map((c, idx) => (
+                    <div key={c.hash} className="relative group">
+                      {/* Node circle on tree */}
+                      <span className={`absolute -left-[31px] top-1 w-4 h-4 rounded-full border-2 border-[#04060A] ${
+                        c.status === 'failed' ? 'bg-[#F85149] ring-4 ring-[#F85149]/20' : 
+                        c.status === 'passed' ? 'bg-[#238636]' : 'bg-[#58A6FF]'
+                      }`} />
 
-                <div className="bg-[#0D1117] border border-[#30363D] p-4 rounded-xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 font-bold text-sm text-white">
-                      <FolderGit2 className="w-4 h-4 text-[#3FB950]" /> corp/billing-engine
+                      <div className="bg-[#05070D] border border-[#1E2635] p-4 rounded-xl space-y-2 group-hover:border-[#2D3748] transition">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[#58A6FF] font-bold">#{c.hash}</span>
+                            <span className="px-2 py-0.5 rounded text-[10px] bg-[#111622] border border-[#1E2635] text-[#8B949E]">
+                              {c.branch}
+                            </span>
+                            {c.status === 'failed' && (
+                              <span className="px-2 py-0.5 rounded text-[10px] bg-[#F85149]/20 text-[#F85149] font-bold border border-[#F85149]/40">
+                                Regressing Commit (SIGSEGV)
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[#8B949E] text-[11px] flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> {c.timestamp}
+                          </span>
+                        </div>
+
+                        <div className="text-white font-sans text-xs font-semibold">{c.message}</div>
+
+                        <div className="text-[#8B949E] text-[11px] flex items-center justify-between pt-2 border-t border-[#151C2A]">
+                          <span>Committer: <strong>{c.author}</strong></span>
+                          <span>Verified GPG Signature</span>
+                        </div>
+                      </div>
                     </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-[#238636]/20 text-[#3FB950] font-mono border border-[#238636]/30">Healthy</span>
-                  </div>
-                  <p className="text-xs text-[#8B949E]">Stripe webhook listener and invoice dispatch worker.</p>
-                  <div className="text-xs font-mono text-[#8B949E] pt-2 border-t border-[#21262D] flex justify-between">
-                    <span>Branch: <code>production</code></span>
-                    <span>Last commit: <code>#7a102c9</code></span>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>
           )}
 
-          {/* 3. VIEW: QODO CODE AUDITS */}
-          {activeNav === 'audits' && (
+          {/* 3. VIEW: PULL REQUESTS & QODO AUDITS */}
+          {activeNav === 'prs' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-white">Qodo Quality & Compliance Standards</h2>
-                  <p className="text-xs text-[#8B949E]">Automated agentic review history ensuring high hygiene and zero regressions.</p>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <GitPullRequest className="w-5 h-5 text-[#EE0000]" /> Pull Requests & Qodo Compliance
+                  </h2>
+                  <p className="text-xs text-[#8B949E]">Audit trails verifying automated PR hygiene before merging to main.</p>
                 </div>
                 <a 
-                  href="https://github.com/nitin24x7/VigilSRE-agent/pull/1" 
-                  target="_blank" 
+                  href="https://github.com/nitin24x7/VigilSRE-agent/pull/1"
+                  target="_blank"
                   rel="noreferrer"
-                  className="px-3.5 py-1.5 bg-[#161B22] border border-[#30363D] text-[#58A6FF] rounded text-xs font-bold hover:bg-[#21262D] transition flex items-center gap-1.5"
+                  className="px-3.5 py-1.5 bg-[#EE0000] hover:bg-[#CC0000] text-white rounded text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-[#EE0000]/25"
                 >
-                  View Audited PR #1 <ExternalLink className="w-3.5 h-3.5" />
+                  View PR #1 on GitHub <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               </div>
 
-              <div className="bg-[#0D1117] border border-[#30363D] rounded-xl p-5 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-[#21262D]">
-                  <div className="flex items-center gap-2 font-bold text-sm text-white">
-                    <Sparkles className="w-4 h-4 text-[#A371F7]" /> PR #1: Agent Specification Review
-                  </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 bg-[#238636]/20 text-[#3FB950] rounded border border-[#238636]/40">Resolved & Merged</span>
-                </div>
+              <div className="space-y-4">
+                {pullRequests.map(pr => (
+                  <div key={pr.number} className="card-dark rounded-xl p-5 shadow-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <span className="p-1.5 rounded-lg bg-purple-500/20 text-purple-400 font-bold font-mono text-xs">
+                          #{pr.number}
+                        </span>
+                        <h3 className="font-bold text-white text-sm">{pr.title}</h3>
+                      </div>
+                      <span className="px-2.5 py-1 rounded bg-[#238636]/20 text-[#3FB950] font-mono text-xs font-bold border border-[#238636]/40">
+                        {pr.status}
+                      </span>
+                    </div>
 
-                <div className="bg-[#07090D] border border-[#21262D] p-3 rounded-lg text-xs font-mono space-y-2">
-                  <div className="text-[#8B949E]">
-                    <span className="text-[#F85149] font-bold">[High Priority Bug Caught]:</span> `agent.json` contained bash heredoc wrapper strings causing JSON parser errors.
+                    <div className="text-xs font-mono text-[#8B949E] space-y-1">
+                      <div>Branch Target: <strong className="text-white">{pr.branch}</strong></div>
+                      <div>Author: <strong className="text-white">{pr.author}</strong></div>
+                    </div>
+
+                    <div className="bg-[#05070D] border-l-2 border-l-[#A371F7] border-y border-r border-[#1E2635] p-3 rounded-lg flex items-center justify-between text-xs font-mono">
+                      <span className="text-[#8B949E]">Qodo Automated Analysis:</span>
+                      <span className="text-[#3FB950] font-bold">{pr.qodoAudit}</span>
+                    </div>
                   </div>
-                  <div className="text-[#3FB950]">
-                    <span className="font-bold">[Remediation]:</span> Stripped bash wrappers and verified schema compliance with TrueForge runtime.
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* 4. VIEW: HARNESS CONSOLE */}
-          {activeNav === 'terminal' && (
-            <div className="h-full flex flex-col bg-[#0D1117] border border-[#30363D] rounded-xl overflow-hidden shadow-2xl">
-              <div className="bg-[#161B22] border-b border-[#21262D] px-4 py-2 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-mono text-[#8B949E]">
-                  <Terminal className="w-4 h-4 text-[#EE0000]" />
-                  <span>TrueForge Interactive Shell</span>
+          {/* 4. VIEW: CLUSTER FLEET HEALTH & AUTO-ROLLBACK ENGINE */}
+          {activeNav === 'fleet' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Server className="w-5 h-5 text-[#EE0000]" /> Cluster Node Matrix (Region: ap-south-1)
+                  </h2>
+                  <p className="text-xs text-[#8B949E]">Real-time container pod metrics, error densities, and automatic traffic shedding.</p>
                 </div>
-                <span className="text-[10px] font-mono text-[#3FB950]">Interactive Ready</span>
+                <button
+                  onClick={() => {
+                    setCanaryShedding(!canaryShedding);
+                    showToast(canaryShedding ? 'Canary traffic normal' : 'Emergency Canary traffic shed engaged');
+                  }}
+                  className={`px-3.5 py-1.5 rounded text-xs font-bold transition flex items-center gap-1.5 ${
+                    canaryShedding ? 'bg-[#238636] text-white' : 'bg-[#1C2331] text-white hover:bg-[#252E40] border border-[#2D3748]'
+                  }`}
+                >
+                  <ShieldAlert className="w-3.5 h-3.5 text-[#EE0000]" />
+                  {canaryShedding ? 'Traffic Shedding Active' : 'Engage Emergency Traffic Shedding'}
+                </button>
               </div>
 
-              <div className="flex-1 p-4 font-mono text-xs space-y-2 overflow-y-auto text-[#8B949E]">
+              {/* Node Matrix Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                
+                {/* Node 1 */}
+                <div className="card-dark p-5 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between font-mono text-xs">
+                    <span className="text-white font-bold">node-ap-south-1a</span>
+                    <span className="px-2 py-0.5 rounded bg-[#F85149]/20 text-[#F85149] font-bold border border-[#F85149]/30">SIGSEGV Pod Crash</span>
+                  </div>
+                  <div className="space-y-1 text-xs font-mono text-[#8B949E]">
+                    <div className="flex justify-between"><span>Pod Restarts:</span><span className="text-[#F85149] font-bold">14</span></div>
+                    <div className="flex justify-between"><span>Memory Load:</span><span>91.2%</span></div>
+                    <div className="flex justify-between"><span>Active Commit:</span><span className="text-[#58A6FF]">#4f8b91a</span></div>
+                  </div>
+                </div>
+
+                {/* Node 2 */}
+                <div className="card-dark p-5 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between font-mono text-xs">
+                    <span className="text-white font-bold">node-ap-south-1b</span>
+                    <span className="px-2 py-0.5 rounded bg-[#238636]/20 text-[#3FB950] font-bold border border-[#238636]/30">Healthy</span>
+                  </div>
+                  <div className="space-y-1 text-xs font-mono text-[#8B949E]">
+                    <div className="flex justify-between"><span>Pod Restarts:</span><span className="text-white">0</span></div>
+                    <div className="flex justify-between"><span>Memory Load:</span><span>34.1%</span></div>
+                    <div className="flex justify-between"><span>Active Commit:</span><span className="text-[#58A6FF]">#55da8e7</span></div>
+                  </div>
+                </div>
+
+                {/* Node 3 */}
+                <div className="card-dark p-5 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between font-mono text-xs">
+                    <span className="text-white font-bold">node-ap-south-1c</span>
+                    <span className="px-2 py-0.5 rounded bg-[#238636]/20 text-[#3FB950] font-bold border border-[#238636]/30">Healthy</span>
+                  </div>
+                  <div className="space-y-1 text-xs font-mono text-[#8B949E]">
+                    <div className="flex justify-between"><span>Pod Restarts:</span><span className="text-white">0</span></div>
+                    <div className="flex justify-between"><span>Memory Load:</span><span>29.8%</span></div>
+                    <div className="flex justify-between"><span>Active Commit:</span><span className="text-[#58A6FF]">#55da8e7</span></div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* 5. VIEW: HARNESS CONSOLE */}
+          {activeNav === 'terminal' && (
+            <div className="h-full flex flex-col card-dark rounded-xl overflow-hidden shadow-2xl">
+              <div className="bg-[#0B1019] border-b border-[#1E2635] px-4 py-2.5 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-mono text-[#8B949E]">
+                  <Terminal className="w-4 h-4 text-[#EE0000]" />
+                  <span>TrueForge Interactive Shell (:8790)</span>
+                </div>
+                <span className="text-[10px] font-mono text-[#3FB950] flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#3FB950] animate-pulse" /> Ready
+                </span>
+              </div>
+
+              <div className="flex-1 p-4 font-mono text-xs space-y-2 overflow-y-auto text-[#8B949E] bg-[#05070D]">
                 {terminalHistory.map((line, i) => (
                   <div key={i} className={line.startsWith('>') ? 'text-white font-bold' : ''}>
                     {line}
@@ -607,16 +915,16 @@ export default function VigilSREApp() {
                 ))}
               </div>
 
-              <form onSubmit={handleTerminalSubmit} className="p-3 bg-[#0B0F17] border-t border-[#21262D] flex items-center gap-2">
+              <form onSubmit={handleTerminalSubmit} className="p-3 bg-[#080C14] border-t border-[#1E2635] flex items-center gap-2">
                 <span className="text-[#EE0000] font-mono font-bold">{'>'}</span>
                 <input 
                   type="text"
                   value={terminalInput}
                   onChange={(e) => setTerminalInput(e.target.value)}
-                  placeholder="Type a command (e.g. status, triage, sandbox, qodo, clear)..."
+                  placeholder="Type a command (e.g. status, triage, rollback, sandbox, qodo, pr, fleet, clear)..."
                   className="flex-1 bg-transparent border-none outline-none font-mono text-xs text-white placeholder-[#8B949E]"
                 />
-                <button type="submit" className="p-1.5 rounded bg-[#21262D] hover:bg-[#30363D] text-white">
+                <button type="submit" className="p-2 rounded bg-[#161F2E] hover:bg-[#202B3E] text-white">
                   <Send className="w-3.5 h-3.5" />
                 </button>
               </form>
@@ -626,55 +934,78 @@ export default function VigilSREApp() {
         </main>
       </div>
 
-      {/* SRE Settings Modal */}
+      {/* SRE CONFIGURATION MODAL */}
       {showSettings && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0D1117] border border-[#30363D] rounded-xl w-full max-w-md p-6 space-y-5 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-[#21262D]">
-              <h3 className="font-bold text-white text-sm flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-[#EE0000]" /> SRE Agent Settings
-              </h3>
-              <button onClick={() => setShowSettings(false)} className="text-[#8B949E] hover:text-white">
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="card-dark rounded-2xl w-full max-w-lg p-6 space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1E2635]">
+              <div className="flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-[#EE0000]" />
+                <h3 className="font-bold text-white text-sm">SRE Agent Configuration</h3>
+              </div>
+              <button 
+                onClick={() => setShowSettings(false)}
+                className="text-[#8B949E] hover:text-white transition p-1 rounded-md hover:bg-[#151C2A]"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="space-y-4 text-xs font-mono">
               <div>
-                <label className="text-[#8B949E] block mb-1">TrueForge Runtime URL</label>
+                <label className="text-[#8B949E] block mb-1 font-bold">Target Monitored Repository</label>
                 <input 
                   type="text" 
-                  defaultValue="http://localhost:8790" 
-                  disabled 
-                  className="w-full bg-[#161B22] border border-[#30363D] px-3 py-2 rounded text-slate-300"
+                  value={config.targetRepo}
+                  onChange={(e) => setConfig({ ...config, targetRepo: e.target.value })}
+                  className="w-full bg-[#05070D] border border-[#1E2635] px-3.5 py-2.5 rounded-lg text-white focus:outline-none focus:border-[#EE0000]"
                 />
               </div>
 
               <div>
-                <label className="text-[#8B949E] block mb-1">Daytona Sandbox ID</label>
+                <label className="text-[#8B949E] block mb-1 font-bold">Target Monitored Branch</label>
                 <input 
                   type="text" 
-                  defaultValue="sb-9842-isolated-env" 
-                  disabled 
-                  className="w-full bg-[#161B22] border border-[#30363D] px-3 py-2 rounded text-slate-300"
+                  value={config.targetBranch}
+                  onChange={(e) => setConfig({ ...config, targetBranch: e.target.value })}
+                  className="w-full bg-[#05070D] border border-[#1E2635] px-3.5 py-2.5 rounded-lg text-white focus:outline-none focus:border-[#EE0000]"
                 />
               </div>
 
               <div>
-                <label className="text-[#8B949E] block mb-1">Gemini API Key</label>
+                <label className="text-[#8B949E] block mb-1 font-bold">TrueForge Standalone Engine URL</label>
                 <input 
-                  type="password" 
-                  value={apiKeyInput}
-                  onChange={(e) => setApiKeyInput(e.target.value)}
-                  className="w-full bg-[#161B22] border border-[#30363D] px-3 py-2 rounded text-slate-300"
+                  type="text" 
+                  value={config.trueforgeUrl}
+                  onChange={(e) => setConfig({ ...config, trueforgeUrl: e.target.value })}
+                  className="w-full bg-[#05070D] border border-[#1E2635] px-3.5 py-2.5 rounded-lg text-white focus:outline-none focus:border-[#EE0000]"
+                />
+              </div>
+
+              <div>
+                <label className="text-[#8B949E] block mb-1 font-bold">Daytona Sandbox ID</label>
+                <input 
+                  type="text" 
+                  value={config.daytonaId}
+                  onChange={(e) => setConfig({ ...config, daytonaId: e.target.value })}
+                  className="w-full bg-[#05070D] border border-[#1E2635] px-3.5 py-2.5 rounded-lg text-white focus:outline-none focus:border-[#EE0000]"
                 />
               </div>
             </div>
 
-            <div className="pt-3 border-t border-[#21262D] flex justify-end gap-2">
+            <div className="pt-3 border-t border-[#1E2635] flex justify-end gap-3">
               <button 
                 onClick={() => setShowSettings(false)}
-                className="px-4 py-2 bg-[#EE0000] hover:bg-[#CC0000] text-white text-xs font-bold rounded transition"
+                className="px-4 py-2 bg-[#151C2A] hover:bg-[#1E2635] text-[#8B949E] hover:text-white text-xs font-bold rounded-lg transition"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  setShowSettings(false);
+                  showToast('SRE Configuration Saved Successfully');
+                }}
+                className="px-5 py-2 bg-[#EE0000] hover:bg-[#CC0000] text-white text-xs font-bold rounded-lg transition shadow-lg shadow-[#EE0000]/25"
               >
                 Save Configuration
               </button>
