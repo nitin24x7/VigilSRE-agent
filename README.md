@@ -56,9 +56,7 @@ Open http://localhost:5173 to access the Mission Control dashboard.
 
 ---
 
-### 4. Step-by-Step Demo Video Guide (Free & Live)
-
-Follow this setup to record a live test against a real GitHub repository:
+### 4. Step-by-Step 
 
 #### Step A: Push a Real Target Repo to Your GitHub
 1. Create a repository on your GitHub account called `dummy-auth-gateway`.
