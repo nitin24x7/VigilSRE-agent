@@ -7,9 +7,9 @@ VigilSRE is an autonomous site reliability engineering agent designed to ingest 
 
 ## Architecture & Tech Stack
 * **Agent Harness:** TrueForge runtime engine (`npx @truefoundry/trueforge`) with MCP tool routing.
-* **Sandbox Execution:** Daytona isolated containers (`sb-9842`).
+* **Sandbox Execution:** Daytona isolated containers (`sb-9842-isolated-env`).
 * **Code Quality Assurance:** Qodo automated pull request reviews and static security checks.
-* **Frontend Dashboard:** React 18, TypeScript, Tailwind CSS, and Lucide Icons (MacOS-inspired Dark Terminal UI).
+* **Frontend Dashboard:** React 18, TypeScript, Tailwind CSS, and Lucide Icons (Red Hat Enterprise Dark Terminal UI).
 * **LLM Core:** Gemini 3.7 Flash.
 
 ---
@@ -26,3 +26,4 @@ To demonstrate rigorous engineering standards, all agent components and configur
    ```bash
    git clone [https://github.com/nitin24x7/VigilSRE-agent.git](https://github.com/nitin24x7/VigilSRE-agent.git)
    cd VigilSRE-agent
+   npm install
