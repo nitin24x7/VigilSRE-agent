@@ -12,21 +12,28 @@ body {
   overflow: hidden;
 }
 
-.terminal-glow {
-  background: radial-gradient(circle at 50% 0%, rgba(238, 0, 0, 0.08) 0%, rgba(9, 13, 20, 0.95) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.8);
-}
-
-.card-dark {
+.panel-card {
   background: #090D15;
   border: 1px solid #1E2635;
 }
 
-.card-dark:hover {
+.panel-card:hover {
   border-color: #2D3748;
 }
 
+.glow-red {
+  box-shadow: 0 0 20px -5px rgba(238, 0, 0, 0.35);
+}
+
+.glow-green {
+  box-shadow: 0 0 20px -5px rgba(35, 134, 54, 0.35);
+}
+
+.glow-amber {
+  box-shadow: 0 0 20px -5px rgba(210, 153, 34, 0.35);
+}
+
+/* Custom terminal scrollbars */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;

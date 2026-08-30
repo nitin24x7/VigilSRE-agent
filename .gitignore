@@ -2,6 +2,9 @@ node_modules
 dist
 .env
 incident_state.json
+dist/
+mcp_servers.json
+mcp_server.json
 .DS_Store
 web/node_modules
 web/dist

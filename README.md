@@ -16,7 +16,7 @@ VigilSRE is an autonomous site reliability engineering agent designed to ingest 
 
 ## Qodo Code Review Evidence
 To demonstrate rigorous engineering standards, all agent components and configuration specifications were vetted through automated Qodo code reviews prior to merging into `main`:
-* **Pull Request #1:** [View Merged PR #1 - Agent Specification & Guardrails](https://github.com/nitin24x7/VigilSRE-agent/pull/1)
+* **Pull Request #1:** [View Merged PR #1 - Agent Specification & Guardrails](https://github.com/<your-github-username>/VigilSRE-agent/pull/1)
   * *Qodo finding addressed:* Corrected JSON formatting on `agent.json` by stripping shell heredoc wrappers to ensure robust parser compatibility.
 
 ---
@@ -24,6 +24,6 @@ To demonstrate rigorous engineering standards, all agent components and configur
 ## Quick Start & Local Setup
 1. Clone the repository and install dependencies:
    ```bash
-   git clone [https://github.com/nitin24x7/VigilSRE-agent.git](https://github.com/nitin24x7/VigilSRE-agent.git)
+   git clone [https://github.com/<your-github-username>/VigilSRE-agent.git](https://github.com/<your-github-username>/VigilSRE-agent.git)
    cd VigilSRE-agent
    npm install

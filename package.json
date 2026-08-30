@@ -9,16 +9,17 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nitin24x7/VigilSRE-agent.git"
+    "url": "git+https://github.com/<your-github-username>/VigilSRE-agent.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/nitin24x7/VigilSRE-agent/issues"
+    "url": "https://github.com/<your-github-username>/VigilSRE-agent/issues"
   },
-  "homepage": "https://github.com/nitin24x7/VigilSRE-agent#readme",
+  "homepage": "https://github.com/<your-github-username>/VigilSRE-agent#readme",
   "dependencies": {
+    "@octokit/rest": "^22.0.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1"
